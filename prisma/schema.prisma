@@ -1,0 +1,154 @@
+// TaxiConnect / TaxiOS Datenmodell (Multi-Mandant)
+// Provider auf "postgresql" umstellen + DATABASE_URL anpassen, um produktiv zu gehen.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Taxiunternehmen (Mandant + Admin-Account)
+// ---------------------------------------------------------------------------
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique // fuer den Kunden-Buchungslink /c/<slug>
+  address      String?
+  phone        String?
+  email        String   @unique // Admin-Login
+  passwordHash String
+
+  drivers      Driver[]
+  bookings     Booking[]
+  pricing      Pricing?
+
+  createdAt    DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Preis-Einstellungen je Unternehmen
+// ---------------------------------------------------------------------------
+model Pricing {
+  id             String   @id @default(cuid())
+  companyId      String   @unique
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  basePrice      Float    @default(4.0) // Grundpreis
+  perKmDay       Float    @default(2.5) // Tagtarif 06:00-22:00
+  perKmNight     Float    @default(3.2) // Nachttarif 22:00-06:00
+  perKmWeekend   Float    @default(2.8) // Wochenende (Sa/So)
+  perMinute      Float    @default(0.0) // optionaler Zeitanteil
+  nightStartHour Int      @default(22)
+  nightEndHour   Int      @default(6)
+
+  updatedAt      DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Fahrer (inkl. Fahrzeugdaten)
+// ---------------------------------------------------------------------------
+model Driver {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  username     String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+
+  // Status: FREI | BESETZT | PAUSE | OFFLINE
+  status       String   @default("OFFLINE")
+
+  // Letzte bekannte GPS-Position
+  lat          Float?
+  lng          Float?
+  speed        Float?
+  lastSeenAt   DateTime?
+
+  // Fahrzeug
+  vehicleModel String?
+  vehiclePlate String?
+  vehicleColor String?
+  vehicleSeats Int      @default(4)
+  active       Boolean  @default(true)
+
+  bookings     Booking[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Auftrag / Buchung
+// ---------------------------------------------------------------------------
+model Booking {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Kundendaten
+  customerName   String
+  customerPhone  String
+
+  // Adressen + Koordinaten
+  pickupAddress  String
+  pickupLat      Float
+  pickupLng      Float
+  destAddress    String
+  destLat        Float
+  destLng        Float
+
+  // Optionen
+  passengers     Int      @default(1)
+  luggage        Boolean  @default(false)
+  childSeat      Boolean  @default(false)
+  notes          String?
+
+  // Vorbestellung
+  isScheduled    Boolean  @default(false)
+  scheduledAt    DateTime?
+
+  // Schaetzung / Preis
+  distanceMeters Int?
+  durationSeconds Int?
+  priceMin       Float?
+  priceMax       Float?
+  tariff         String?  // TAG | NACHT | WOCHENENDE
+  fare           Float?
+
+  // Auftragsstatus (Admin):
+  //   OFFEN | ZUGEWIESEN | AKTIV | ABGESCHLOSSEN | STORNIERT
+  status         String   @default("OFFEN")
+
+  // Kunden-Tracking-Status
+  trackingStatus String   @default("SUCHE")
+
+  // Zuweisung
+  driver         Driver?  @relation(fields: [driverId], references: [id])
+  driverId       String?
+  declinedDriverIds String @default("")
+
+  // Bewertung
+  rating         Int?
+  ratedAt        DateTime?
+
+  assignedAt     DateTime?
+  acceptedAt     DateTime?
+  arrivedAt      DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+  @@index([driverId])
+}

@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  @apply bg-ink-50 text-ink-900 antialiased;
+  font-feature-settings: "ss01", "cv01";
+}
+
+/* Leaflet-Karte fuellt ihren Container */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #dfeaf2;
+  z-index: 0;
+  font-family: inherit;
+}
+.leaflet-control-attribution {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* dezenter Scrollbalken */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd2dd transparent;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold tracking-tight transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-400;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-b from-brand-400 to-brand-500 text-ink-950 shadow-glow hover:from-brand-300 hover:to-brand-400 hover:-translate-y-0.5;
+  }
+  .btn-dark {
+    @apply btn bg-ink-900 text-white shadow-soft hover:bg-ink-800 hover:-translate-y-0.5;
+  }
+  .btn-ghost {
+    @apply btn bg-white text-ink-800 ring-1 ring-ink-200 hover:bg-ink-50 hover:ring-ink-300;
+  }
+  .btn-success {
+    @apply btn bg-gradient-to-b from-green-500 to-green-600 text-white shadow-soft hover:-translate-y-0.5;
+  }
+  .btn-danger {
+    @apply btn bg-white text-red-600 ring-1 ring-red-200 hover:bg-red-50;
+  }
+  .card {
+    @apply rounded-3xl bg-white shadow-card ring-1 ring-ink-200/70;
+  }
+  .field {
+    @apply w-full rounded-2xl border border-ink-200 bg-white px-4 py-3 text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-200/60;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-ink-700;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.14em] text-ink-400;
+  }
+}
