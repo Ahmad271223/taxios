@@ -28,6 +28,7 @@ export function BookingForm({ scheduled = false, companySlug }: { scheduled?: bo
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"BAR" | "KARTE">("BAR");
 
   const [quote, setQuote] = useState<PriceEstimate | null>(null);
   const [routeLine, setRouteLine] = useState<[number, number][] | null>(null);
@@ -146,6 +147,7 @@ export function BookingForm({ scheduled = false, companySlug }: { scheduled?: bo
           childSeat,
           notes: notes || null,
           scheduledAt,
+          paymentMethod,
         }),
       });
       const data = await res.json();
@@ -241,6 +243,35 @@ export function BookingForm({ scheduled = false, companySlug }: { scheduled?: bo
             required
           />
         </div>
+      </div>
+
+      {/* Zahlungsart */}
+      <div>
+        <label className="label">Zahlungsart</label>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { key: "BAR", label: "💵 Bar / EC beim Fahrer" },
+            { key: "KARTE", label: "💳 Karte (nach der Fahrt)" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setPaymentMethod(opt.key)}
+              className={`rounded-2xl px-4 py-3 text-sm font-semibold ring-1 transition ${
+                paymentMethod === opt.key
+                  ? "bg-ink-900 text-white ring-transparent"
+                  : "bg-white text-ink-700 ring-ink-200 hover:bg-ink-50"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {paymentMethod === "KARTE" && (
+          <p className="mt-1 text-xs text-ink-500">
+            Sie bezahlen nach Fahrtende sicher per Karte – das Geld geht direkt an das Taxiunternehmen.
+          </p>
+        )}
       </div>
 
       {scheduled && (

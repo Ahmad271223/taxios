@@ -7,6 +7,12 @@ export function iso(d: Date | null | undefined): string | null {
   return d ? new Date(d).toISOString() : null;
 }
 
+function ratingAvg(driver: any): number | null {
+  return driver?.ratingCount > 0
+    ? Math.round((driver.ratingSum / driver.ratingCount) * 10) / 10
+    : null;
+}
+
 // Oeffentliche Fahrerinfo fuer den Kunden (ohne sensible Daten).
 export function driverPublic(driver: any) {
   if (!driver) return null;
@@ -19,6 +25,8 @@ export function driverPublic(driver: any) {
     vehicleColor: driver.vehicleColor ?? null,
     lat: driver.lat ?? null,
     lng: driver.lng ?? null,
+    rating: ratingAvg(driver),
+    ratingCount: driver.ratingCount ?? 0,
   };
 }
 
@@ -37,6 +45,8 @@ export function driverAdmin(driver: any) {
     vehiclePlate: driver.vehiclePlate ?? null,
     vehicleColor: driver.vehicleColor ?? null,
     vehicleSeats: driver.vehicleSeats ?? 4,
+    rating: ratingAvg(driver),
+    ratingCount: driver.ratingCount ?? 0,
     lastSeenAt: iso(driver.lastSeenAt),
   };
 }
@@ -66,6 +76,9 @@ export function bookingDTO(b: any, extra: Record<string, any> = {}) {
     tariff: b.tariff ?? null,
     fare: b.fare ?? null,
     rating: b.rating ?? null,
+    paymentMethod: b.paymentMethod ?? null,
+    paid: b.paid ?? false,
+    paidAmount: b.paidAmount ?? null,
     status: b.status,
     trackingStatus: b.trackingStatus,
     driverId: b.driverId ?? null,

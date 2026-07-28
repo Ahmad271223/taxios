@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getSocket } from "@/lib/socket";
+import { getSocket, resetSocket } from "@/lib/socket";
 import { Brand } from "@/components/Brand";
 import {
   DRIVER_STATUS_LABEL,
@@ -26,6 +26,8 @@ export function AdminDashboard() {
   const [scheduled, setScheduled] = useState<any[]>([]);
   const [today, setToday] = useState<{ trips: number; revenue: number; avgFare: number } | null>(null);
   const [company, setCompany] = useState<{ name: string; slug: string } | null>(null);
+  const [stats, setStats] = useState<any | null>(null);
+  const [recentTrips, setRecentTrips] = useState<any[]>([]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -37,7 +39,7 @@ export function AdminDashboard() {
       .catch(() => router.replace("/admin/login"));
   }, [router]);
 
-  const loadOverview = () =>
+  const loadOverview = () => {
     fetch("/api/admin/overview")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -47,6 +49,15 @@ export function AdminDashboard() {
         }
       })
       .catch(() => {});
+    fetch("/api/admin/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setStats(d))
+      .catch(() => {});
+    fetch("/api/admin/trips?status=ABGESCHLOSSEN&take=8")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setRecentTrips(d.trips))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     if (authState !== "ok") return;
@@ -149,6 +160,7 @@ export function AdminDashboard() {
   }
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    resetSocket();
     router.replace("/admin/login");
   }
 
@@ -162,8 +174,11 @@ export function AdminDashboard() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
           <Brand href="/admin" subtitle={company?.name ?? "Zentrale"} />
           <div className="flex items-center gap-4 text-sm font-medium">
+            <Link href="/admin/fahrten" className="text-ink-500 hover:text-ink-900">Fahrten</Link>
+            <Link href="/admin/kunden" className="text-ink-500 hover:text-ink-900">Kunden</Link>
             <Link href="/admin/fahrer" className="text-ink-500 hover:text-ink-900">Fahrer</Link>
             <Link href="/admin/preise" className="text-ink-500 hover:text-ink-900">Preise</Link>
+            <Link href="/admin/zahlungen" className="text-ink-500 hover:text-ink-900">Zahlungen</Link>
             <button onClick={logout} className="text-ink-500 hover:text-ink-900">Abmelden</button>
           </div>
         </div>
@@ -185,13 +200,15 @@ export function AdminDashboard() {
         )}
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Kpi label="Aktive Fahrer" value={counts.active} />
           <Kpi label="Frei" value={counts.frei} color="#16a34a" />
           <Kpi label="Besetzt" value={counts.besetzt} color="#dc2626" />
           <Kpi label="Aktive Aufträge" value={bookingList.length} />
+          <Kpi label="Fahrten heute" value={today?.trips ?? 0} />
           <Kpi label="Umsatz heute" value={formatEuro(today?.revenue ?? 0)} />
-          <Kpi label="Ø Fahrpreis" value={formatEuro(today?.avgFare ?? 0)} />
+          <Kpi label="Umsatz Monat" value={formatEuro(stats?.month?.revenue ?? 0)} />
+          <Kpi label="Ø Bewertung" value={stats?.month?.avgRating ? `${stats.month.avgRating} ★` : "–"} color="#f59e0b" />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
@@ -207,8 +224,16 @@ export function AdminDashboard() {
               {driverList.map((d) => (
                 <div key={d.id} className="flex items-center justify-between gap-2 border-b border-ink-50 px-5 py-3">
                   <div>
-                    <p className="font-semibold text-ink-900">{d.name}</p>
-                    <p className="text-xs text-ink-500">{d.vehicleModel} · {d.vehiclePlate}</p>
+                    <p className="font-semibold text-ink-900">
+                      {d.name}
+                      {d.rating != null && (
+                        <span className="ml-2 text-sm font-semibold text-brand-600">★ {d.rating}</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-ink-500">
+                      {d.vehicleModel} · {d.vehiclePlate}
+                      {d.ratingCount ? ` · ${d.ratingCount} Bew.` : ""}
+                    </p>
                   </div>
                   <span
                     className="rounded-full px-3 py-1 text-xs font-semibold text-white"
@@ -256,6 +281,90 @@ export function AdminDashboard() {
                     <span className="text-xs text-ink-500">{b.driver ? `🚕 ${b.driver.name}` : "offen"}</span>
                   </div>
                   <p className="mt-1 text-ink-600">{b.customerName} · {b.pickupAddress} → {b.destAddress}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Statistik-Zeile */}
+        <div className="grid gap-5 lg:grid-cols-3">
+          {/* Umsatz je Fahrer */}
+          <div className="card p-0">
+            <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
+              <h2 className="font-bold">Umsatz je Fahrer</h2>
+              <span className="text-xs text-ink-400">dieser Monat</span>
+            </div>
+            <div className="max-h-80 overflow-auto">
+              {(stats?.driverStats ?? []).length === 0 && (
+                <p className="px-5 py-6 text-sm text-ink-400">Noch keine Daten.</p>
+              )}
+              {(stats?.driverStats ?? []).map((d: any) => (
+                <div key={d.id} className="flex items-center justify-between border-b border-ink-50 px-5 py-3 text-sm">
+                  <div>
+                    <p className="font-semibold text-ink-900">{d.name}</p>
+                    <p className="text-xs text-ink-500">
+                      {d.tripsMonth} Fahrten{d.avgRating ? ` · ${d.avgRating} ★` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">{formatEuro(d.revenueMonth)}</p>
+                    <p className="text-xs text-ink-500">heute {formatEuro(d.revenueToday)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Letzte Fahrten */}
+          <div className="card p-0">
+            <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
+              <h2 className="font-bold">Letzte Fahrten</h2>
+              <Link href="/admin/fahrten" className="text-xs font-semibold text-brand-700 hover:underline">
+                Alle ansehen →
+              </Link>
+            </div>
+            <div className="max-h-80 overflow-auto">
+              {recentTrips.length === 0 && <p className="px-5 py-6 text-sm text-ink-400">Noch keine Fahrten.</p>}
+              {recentTrips.map((t) => (
+                <div key={t.id} className="border-b border-ink-50 px-5 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-ink-700">
+                      {t.pickupAddress.split(",")[0]} → {t.destAddress.split(",")[0]}
+                    </span>
+                    <span className="shrink-0 font-bold">{formatEuro(t.fare)}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between text-xs text-ink-500">
+                    <span>{formatDateTime(t.completedAt)} · {t.driver?.name ?? "–"}</span>
+                    <span>
+                      {t.paid ? "💳 bezahlt" : t.paymentMethod === "KARTE" ? "💳 offen" : "💵 bar"}
+                      {t.rating ? ` · ${t.rating} ★` : ""}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Beliebteste Strecken */}
+          <div className="card p-0">
+            <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
+              <h2 className="font-bold">Beliebteste Strecken</h2>
+              <span className="text-xs text-ink-400">dieser Monat</span>
+            </div>
+            <div className="max-h-80 overflow-auto">
+              {(stats?.topRoutes ?? []).length === 0 && (
+                <p className="px-5 py-6 text-sm text-ink-400">Noch keine Daten.</p>
+              )}
+              {(stats?.topRoutes ?? []).map((r: any, i: number) => (
+                <div key={r.route} className="flex items-center gap-3 border-b border-ink-50 px-5 py-3 text-sm">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-ink-800">{r.route}</p>
+                    <p className="text-xs text-ink-500">{r.count}× · {formatEuro(r.revenue)}</p>
+                  </div>
                 </div>
               ))}
             </div>

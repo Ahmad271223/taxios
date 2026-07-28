@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { resetSocket } from "@/lib/socket";
 
 interface Props {
   role: "DRIVER" | "ADMIN";
@@ -46,6 +47,7 @@ export function LoginForm({
         setLoading(false);
         return;
       }
+      resetSocket(); // frische Verbindung mit der neuen Session
       router.replace(redirectTo);
     } catch {
       setError("Netzwerkfehler.");

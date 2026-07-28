@@ -160,6 +160,9 @@ function DriverCard({ driver }: { driver: any }) {
     <div className="card p-5">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-ink-400">{driver.username}</span>
+        <span className="text-sm font-semibold text-brand-600">
+          {driver.rating != null ? `★ ${driver.rating} (${driver.ratingCount})` : "noch keine ★"}
+        </span>
       </div>
       <div className="grid gap-3">
         <Field label="Name" value={form.name} onChange={(v) => set("name", v)} />

@@ -167,11 +167,49 @@ src/
 
 ---
 
+## 📱 SMS-Benachrichtigungen (Twilio – echt)
+
+Kunden erhalten automatisch SMS bei: Bestellung eingegangen, Fahrer unterwegs
+(mit Fahrzeug + Tracking-Link), Fahrer angekommen, Fahrt beendet (mit Preis).
+
+Einrichtung (https://console.twilio.com):
+```ini
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_FROM=+49xxxxxxxxxx        # Twilio-Nummer ODER Messaging-Service (MG...)
+APP_BASE_URL=https://ihre-domain.de
+```
+Ohne diese Werte werden SMS nur ins Server-Log geschrieben (kein Fehler).
+Schnelltest: `npx tsx scripts/test-notify.ts`
+
+## 💳 Kartenzahlung mit Stripe Connect
+
+Jede Firma verbindet ihr **eigenes Stripe-Konto** (Express-Onboarding unter
+`/admin/zahlungen`). Zahlt der Kunde nach der Fahrt per Karte, geht das Geld
+als *Destination Charge* **direkt an das Konto der Firma** – optional abzüglich
+einer Plattform-Provision (`PLATFORM_FEE_PERCENT`).
+
+Ablauf: Kunde wählt bei der Buchung „💳 Karte" → nach Fahrtende erscheint auf der
+Tracking-Seite „Jetzt mit Karte bezahlen" → Stripe Checkout → Webhook markiert
+die Fahrt als bezahlt.
+
+Einrichtung (https://dashboard.stripe.com):
+```ini
+STRIPE_SECRET_KEY=sk_live_...     # oder sk_test_... zum Testen
+STRIPE_WEBHOOK_SECRET=whsec_...   # Webhook-Endpoint: /api/stripe/webhook
+PLATFORM_FEE_PERCENT=0            # optionale Provision in %
+APP_BASE_URL=https://ihre-domain.de
+```
+Im Stripe-Dashboard: **Connect** aktivieren (Express-Konten) und einen Webhook
+auf `https://<domain>/api/stripe/webhook` mit den Events
+`checkout.session.completed` und `account.updated` anlegen.
+Lokal testen: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+
 ## 🗺️ Roadmap
 
-- **Phase 2:** Online-Zahlung (PayPal, Kreditkarte, Apple/Google Pay)
+- PayPal / Apple Pay / Google Pay (via Stripe Checkout aktivierbar)
 - **Phase 3:** Native Apps (Android / iOS)
-- Benachrichtigungen per SMS/E-Mail/Push (aktuell In-App/Echtzeit umgesetzt)
+- E-Mail/Push-Benachrichtigungen (SMS bereits umgesetzt)
 
 ---
 

@@ -11,6 +11,7 @@
 import type { Server as IOServer } from "socket.io";
 import { prisma } from "../lib/prisma";
 import { haversineMeters, routeBetween } from "../lib/geo";
+import { sendSms, baseUrl } from "../lib/notify";
 import { bookingDTO, driverAdmin, driverPublic } from "./serialize";
 
 const OFFER_TIMEOUT_MS = 30_000;
@@ -365,6 +366,14 @@ export class Dispatcher {
     this.driverActiveBooking.set(driverId, bookingId);
     await this.setStatusInternal(driverId, "BESETZT");
     await this.emitBooking(bookingId);
+
+    // SMS: Fahrer gefunden / unterwegs
+    const dv = (updated as any).driver;
+    const veh = [dv?.vehicleColor, dv?.vehicleModel].filter(Boolean).join(" ");
+    sendSms(
+      updated.customerPhone,
+      `Ihr Taxi ist unterwegs! Fahrer: ${dv?.name ?? ""}${veh ? `, ${veh}` : ""}${dv?.vehiclePlate ? ` (${dv.vehiclePlate})` : ""}. Live-Verfolgung: ${baseUrl()}/verfolgen/${updated.id}`,
+    );
   }
 
   // setStatus ohne tryAssignPending (intern bei Annahme).
@@ -388,6 +397,7 @@ export class Dispatcher {
         where: { id: bookingId },
         data: { trackingStatus: "FAHRER_ANGEKOMMEN", arrivedAt: new Date() },
       });
+      sendSms(b.customerPhone, `Ihr Fahrer ist angekommen. Bitte kommen Sie zum Abholpunkt: ${b.pickupAddress}`);
     } else if (action === "start") {
       await prisma.booking.update({
         where: { id: bookingId },
@@ -406,6 +416,8 @@ export class Dispatcher {
       });
       this.driverActiveBooking.delete(driverId);
       await this.setStatus(driverId, "FREI"); // loest tryAssignPending aus
+      const preis = fare.toFixed(2).replace(".", ",");
+      sendSms(b.customerPhone, `Fahrt beendet. Gesamtpreis: ${preis} €. Vielen Dank für Ihre Fahrt!`);
     } else if (action === "cancel") {
       await prisma.booking.update({
         where: { id: bookingId },

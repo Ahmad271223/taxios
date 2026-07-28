@@ -18,6 +18,33 @@ export function TrackingView({ id }: { id: string }) {
   const [routeLine, setRouteLine] = useState<[number, number][] | null>(null);
   const [stars, setStars] = useState(0);
   const [ratedDone, setRatedDone] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [paidFlag, setPaidFlag] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("paid") === "1") {
+      setPaidFlag(true);
+    }
+  }, []);
+
+  async function payWithCard() {
+    setPaying(true);
+    setPayError(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/pay`, { method: "POST" });
+      const d = await res.json();
+      if (d.url) {
+        window.location.href = d.url;
+        return;
+      }
+      if (d.paid) setPaidFlag(true);
+      else setPayError(d.error ?? "Zahlung nicht möglich.");
+    } catch {
+      setPayError("Netzwerkfehler.");
+    }
+    setPaying(false);
+  }
 
   async function submitRating(n: number) {
     setStars(n);
@@ -168,6 +195,23 @@ export function TrackingView({ id }: { id: string }) {
             <p className="text-ink-600">Ihre Fahrt ist beendet.</p>
             <p className="mt-4 eyebrow text-ink-400">Gesamtpreis</p>
             <p className="text-3xl font-extrabold text-ink-900">{formatEuro(booking.fare ?? booking.priceMax)}</p>
+
+            {/* Kartenzahlung */}
+            {(booking.paid || paidFlag) ? (
+              <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-green-100 px-4 py-1 font-semibold text-green-700">
+                ✓ Bezahlt
+              </p>
+            ) : booking.paymentMethod === "KARTE" ? (
+              <div className="mt-3">
+                <button onClick={payWithCard} disabled={paying} className="btn-primary">
+                  {paying ? "Weiterleitung …" : "💳 Jetzt mit Karte bezahlen"}
+                </button>
+                {payError && <p className="mt-2 text-sm text-red-600">{payError}</p>}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-ink-500">Zahlung bar / EC beim Fahrer</p>
+            )}
+
             {booking.rating || ratedDone ? (
               <p className="mt-4 font-semibold text-green-600">Danke für Ihre Bewertung! ⭐</p>
             ) : (
@@ -227,10 +271,22 @@ export function TrackingView({ id }: { id: string }) {
             <div className="flex items-center gap-4">
               <div className="grid h-14 w-14 place-items-center rounded-full bg-brand-100 text-2xl">🧑‍✈️</div>
               <div className="flex-1">
-                <p className="text-lg font-bold text-ink-900">{booking.driver.name}</p>
+                <p className="text-lg font-bold text-ink-900">
+                  {booking.driver.name}
+                  {booking.driver.rating != null && (
+                    <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-sm font-semibold text-brand-700">
+                      ★ {booking.driver.rating}
+                    </span>
+                  )}
+                </p>
                 <p className="text-ink-600">
                   {booking.driver.vehicleColor} {booking.driver.vehicleModel} · {booking.driver.vehiclePlate}
                 </p>
+                {booking.driver.rating != null && (
+                  <p className="text-xs text-ink-400">
+                    {booking.driver.ratingCount} Bewertung{booking.driver.ratingCount === 1 ? "" : "en"}
+                  </p>
+                )}
               </div>
               {booking.driver.phone && (
                 <a href={`tel:${booking.driver.phone}`} className="btn-ghost">📞 Anrufen</a>

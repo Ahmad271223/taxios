@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { resetSocket } from "@/lib/socket";
 
 export function CompanyRegister() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export function CompanyRegister() {
         setLoading(false);
         return;
       }
+      resetSocket();
       router.replace("/admin");
     } catch {
       setError("Netzwerkfehler.");

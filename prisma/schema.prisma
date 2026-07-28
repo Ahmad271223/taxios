@@ -22,6 +22,10 @@ model Company {
   email        String   @unique // Admin-Login
   passwordHash String
 
+  // Stripe Connect (Auszahlungskonto des Unternehmens)
+  stripeAccountId      String?
+  stripeChargesEnabled Boolean @default(false)
+
   drivers      Driver[]
   bookings     Booking[]
   pricing      Pricing?
@@ -76,6 +80,10 @@ model Driver {
   vehicleColor String?
   vehicleSeats Int      @default(4)
   active       Boolean  @default(true)
+
+  // Bewertungen (denormalisiert fuer schnelle Anzeige)
+  ratingSum    Float    @default(0)
+  ratingCount  Int      @default(0)
 
   bookings     Booking[]
 
@@ -138,6 +146,13 @@ model Booking {
   // Bewertung
   rating         Int?
   ratedAt        DateTime?
+
+  // Zahlung
+  paymentMethod         String?  // BAR | KARTE
+  paid                  Boolean  @default(false)
+  paidAmount            Float?
+  stripeSessionId       String?
+  stripePaymentIntentId String?
 
   assignedAt     DateTime?
   acceptedAt     DateTime?

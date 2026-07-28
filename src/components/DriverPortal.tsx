@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSocket } from "@/lib/socket";
+import { getSocket, resetSocket } from "@/lib/socket";
 import { Brand } from "@/components/Brand";
 import { DRIVER_STATUS, DRIVER_STATUS_LABEL, DRIVER_STATUS_COLOR, TRACKING_LABEL } from "@/lib/status";
 import { formatEuro, formatDistance, formatDuration, formatDateTime } from "@/lib/format";
@@ -19,7 +19,11 @@ export function DriverPortal() {
   const [openScheduled, setOpenScheduled] = useState<any[]>([]);
   const [offer, setOffer] = useState<any | null>(null);
   const [remaining, setRemaining] = useState(0);
-  const [summary, setSummary] = useState<{ today: { trips: number; revenue: number }; recent: any[] } | null>(null);
+  const [summary, setSummary] = useState<{
+    today: { trips: number; revenue: number };
+    rating: { avg: number | null; count: number };
+    recent: any[];
+  } | null>(null);
   const [gpsOk, setGpsOk] = useState(false);
 
   const loadSummary = useCallback(() => {
@@ -131,6 +135,7 @@ export function DriverPortal() {
   }
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    resetSocket();
     router.replace("/fahrer/login");
   }
 
@@ -181,15 +186,24 @@ export function DriverPortal() {
           </div>
         </div>
 
-        {/* Einnahmen */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Einnahmen + Bewertung */}
+        <div className="grid grid-cols-3 gap-3">
           <div className="card p-4">
             <p className="text-xs uppercase tracking-wide text-ink-500">Einnahmen heute</p>
-            <p className="mt-1 text-2xl font-extrabold text-ink-900">{formatEuro(summary?.today.revenue ?? 0)}</p>
+            <p className="mt-1 text-xl font-extrabold text-ink-900 sm:text-2xl">{formatEuro(summary?.today.revenue ?? 0)}</p>
           </div>
           <div className="card p-4">
             <p className="text-xs uppercase tracking-wide text-ink-500">Fahrten heute</p>
-            <p className="mt-1 text-2xl font-extrabold text-ink-900">{summary?.today.trips ?? 0}</p>
+            <p className="mt-1 text-xl font-extrabold text-ink-900 sm:text-2xl">{summary?.today.trips ?? 0}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs uppercase tracking-wide text-ink-500">Meine Bewertung</p>
+            <p className="mt-1 text-xl font-extrabold text-brand-600 sm:text-2xl">
+              {summary?.rating?.avg != null ? `${summary.rating.avg} ★` : "–"}
+            </p>
+            <p className="text-xs text-ink-400">
+              {summary?.rating?.count ? `${summary.rating.count} Bewertung${summary.rating.count === 1 ? "" : "en"}` : "noch keine"}
+            </p>
           </div>
         </div>
 
@@ -273,9 +287,12 @@ export function DriverPortal() {
             <h2 className="mb-3 font-bold text-ink-900">Letzte Fahrten</h2>
             <div className="grid gap-2 text-sm">
               {summary.recent.map((b) => (
-                <div key={b.id} className="flex justify-between border-b border-ink-100 pb-2 last:border-0">
+                <div key={b.id} className="flex items-center justify-between gap-3 border-b border-ink-100 pb-2 last:border-0">
                   <span className="truncate text-ink-600">{b.destAddress}</span>
-                  <span className="font-semibold">{formatEuro(b.fare)}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {b.rating != null && <span className="text-brand-600">{b.rating} ★</span>}
+                    <span className="font-semibold">{formatEuro(b.fare)}</span>
+                  </span>
                 </div>
               ))}
             </div>

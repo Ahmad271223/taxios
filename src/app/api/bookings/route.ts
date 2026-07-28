@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { estimatePriceWith } from "@/lib/geo";
 import { getDispatcher } from "@/server/runtime";
 import { bookingDTO } from "@/server/serialize";
+import { sendSms, baseUrl } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const schema = z.object({
   childSeat: z.boolean().optional(),
   notes: z.string().max(500).optional().nullable(),
   scheduledAt: z.string().datetime().optional().nullable(),
+  paymentMethod: z.enum(["BAR", "KARTE"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -66,6 +68,7 @@ export async function POST(req: Request) {
       luggage: d.luggage ?? false,
       childSeat: d.childSeat ?? false,
       notes: d.notes ?? null,
+      paymentMethod: d.paymentMethod ?? "BAR",
       isScheduled,
       scheduledAt,
       distanceMeters: estimate.distanceMeters,
@@ -78,7 +81,11 @@ export async function POST(req: Request) {
     },
   });
 
-  if (!isScheduled) {
+  const trackUrl = `${baseUrl()}/verfolgen/${booking.id}`;
+  if (isScheduled) {
+    sendSms(booking.customerPhone, `Ihre Taxi-Vorbestellung ist bestätigt. Status verfolgen: ${trackUrl}`);
+  } else {
+    sendSms(booking.customerPhone, `Ihre Taxi-Bestellung ist eingegangen – wir suchen einen Fahrer. Status: ${trackUrl}`);
     getDispatcher()?.dispatchBooking(booking.id).catch(() => {});
   }
 

@@ -14,6 +14,7 @@ export async function GET() {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
+  const me = await prisma.driver.findUnique({ where: { id: session.sub } });
   const todays = await prisma.booking.findMany({
     where: { driverId: session.sub, status: "ABGESCHLOSSEN", completedAt: { gte: startOfDay } },
     select: { fare: true },
@@ -29,6 +30,13 @@ export async function GET() {
     today: {
       trips: todays.length,
       revenue: Math.round(todays.reduce((s, b) => s + (b.fare ?? 0), 0) * 100) / 100,
+    },
+    rating: {
+      avg:
+        me && me.ratingCount > 0
+          ? Math.round((me.ratingSum / me.ratingCount) * 10) / 10
+          : null,
+      count: me?.ratingCount ?? 0,
     },
     recent: recent.map((b) => bookingDTO(b)),
   });
