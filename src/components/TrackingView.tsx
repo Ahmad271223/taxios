@@ -24,9 +24,23 @@ export function TrackingView({ id }: { id: string }) {
 
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("paid") === "1") {
-      setPaidFlag(true);
+      // Rueckkehr von Stripe-Checkout: Zahlung serverseitig verifizieren
+      // (funktioniert auch ohne Webhook, z. B. lokal).
+      fetch(`/api/bookings/${id}/verify-payment`, { method: "POST" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.paid) {
+            setPaidFlag(true);
+            fetch(`/api/bookings/${id}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((x) => x && setBooking(x.booking))
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   async function payWithCard() {
     setPaying(true);
